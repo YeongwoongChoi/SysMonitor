@@ -1,0 +1,21 @@
+{
+	"name": "Debug SysMonitor",
+	"build": {
+		"dockerfile": "../Dockerfile"
+	},
+  "workspaceMount": "source=${localWorkspaceFolder},target=/sysmonitor,type=bind",
+  "workspaceFolder": "/sysmonitor",
+	"customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "vadimcn.vscode-lldb"
+      ]
+    }
+  },
+	"remoteUser": "root",
+  "runArgs": ["-p", "127.0.0.1:8080:8080/udp"]
+}
