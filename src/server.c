@@ -1,15 +1,21 @@
 #include "server.h"
+#include "resource.h"
 
-void print_log(const char *log_type, const char *format, ...) {
-	va_list args;
-	va_start(args, format);
+void print_log(char *buf, const char *log_type, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
 
-	printf("%s", log_type);
-	vprintf(format, args);
-	printf("%s\n", LOG_DEFAULT);
+    char message[500];
+    vsnprintf(message, sizeof(message), format, args);
 
-	va_end(args);
+    if (buf)
+        snprintf(buf, BUF_SIZE, "%s%s%s\n", log_type, message, LOG_DEFAULT);
+    else
+        printf("%s%s%s\n", log_type, message, LOG_DEFAULT);
+
+    va_end(args);
 }
+
 
 const char *get_time() {
 	static char datetime[30];
