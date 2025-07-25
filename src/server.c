@@ -63,7 +63,9 @@ int main() {
 
 		if (!strcmp(buf, "cpu"))
 			print_log(buf, LOG_INFO, "[SysMonitor] CPU Usage: %.2f%%", get_cpu_usage());
-		
+		else if (!strcmp(buf, "mem"))
+        	print_log(buf, LOG_INFO, "[SysMonitor] Mem Usage: %.2f%%", get_mem_usage());
+
 		int total_sent = 0;
 		const int length = strlen(buf);
 
