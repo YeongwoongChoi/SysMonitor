@@ -16,7 +16,6 @@ void print_log(char *buf, const char *log_type, const char *format, ...) {
     va_end(args);
 }
 
-
 const char *get_time() {
 	static char datetime[30];
 	time_t raw = time(NULL);
@@ -34,7 +33,7 @@ int main() {
 	char buf[BUF_SIZE];
 
 	if ((socket_descriptor = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		print_log(LOG_ERROR, "Error occurred while socket() executed.");
+		print_log(NULL, LOG_ERROR, "Error occurred while socket() executed.");
 		exit(1);
 	}
 
@@ -43,11 +42,11 @@ int main() {
 	server_addr.sin_addr.s_addr = INADDR_ANY;
 
 	if (bind(socket_descriptor, (struct sockaddr *)(&server_addr), sizeof(server_addr)) < 0) {
-		print_log(LOG_ERROR, "Error occurred while binding socket.");
+		print_log(NULL, LOG_ERROR, "Error occurred while binding socket.");
 		exit(1);
 	}
-	print_log(LOG_SUCCESS, "Binding was successful.");
-	print_log(LOG_INFO, "Monitoring agent started at %s on port %d.", get_time(), PORT_NUM);
+	print_log(NULL, LOG_SUCCESS, "Binding was successful.");
+	print_log(NULL, LOG_INFO, "Monitoring agent started at %s on port %d.", get_time(), PORT_NUM);
 
 	int received, sent;
 
@@ -56,14 +55,15 @@ int main() {
 			(struct sockaddr *)(&client_addr), &address_length);
 
 		if (received < 0) {
-			print_log(LOG_ERROR, "Error occurred while receiving data from client.");
+			print_log(NULL, LOG_ERROR, "Error occurred while receiving data from client.");
 			exit(1);
 		}
 		buf[received] = '\0';
+		buf[strcspn(buf, "\r\n")] = '\0';
 
-		print_log(LOG_DEFAULT, "Message from client was %s", buf);
+		if (!strcmp(buf, "cpu"))
+			print_log(buf, LOG_INFO, "[SysMonitor] CPU Usage: %.2f%%", get_cpu_usage());
 		
-		snprintf(buf, BUF_SIZE, "[Response from server] Current time: %s\n", get_time());
 		int total_sent = 0;
 		const int length = strlen(buf);
 
@@ -72,7 +72,7 @@ int main() {
 				(struct sockaddr *)(&client_addr), address_length);
 
 			if (sent == -1) {
-				print_log(LOG_ERROR, "Error occurred while sending data to client.");
+				print_log(NULL, LOG_ERROR, "Error occurred while sending data to client.");
 				exit(1);
 			}
 			total_sent += sent;
