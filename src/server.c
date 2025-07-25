@@ -65,6 +65,11 @@ int main() {
 			print_log(buf, LOG_INFO, "[SysMonitor] CPU Usage: %.2f%%", get_cpu_usage());
 		else if (!strcmp(buf, "mem"))
         	print_log(buf, LOG_INFO, "[SysMonitor] Mem Usage: %.2f%%", get_mem_usage());
+		else if (!strcmp(buf, "disk"))
+            print_log(buf, LOG_INFO, "[SysMonitor] Disk Usage: %.2f%%", get_disk_usage("/"));
+        else
+            print_log(buf, LOG_ERROR, "[SysMonitor] Invalid request. %s", 
+                "Request should be one of these: [cpu|mem|disk]");
 
 		int total_sent = 0;
 		const int length = strlen(buf);

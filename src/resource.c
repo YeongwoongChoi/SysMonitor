@@ -53,3 +53,15 @@ double get_mem_usage() {
     
     return 100.0 * (1.0 - ((double)mem_available / mem_total));
 }
+
+double get_disk_usage(const char *path) {
+    struct statvfs stat;
+
+    if (statvfs(path, &stat) != 0)
+        return 0.0;
+    
+    unsigned long long total = (unsigned long long)stat.f_blocks * stat.f_frsize;
+    unsigned long long free = (unsigned long long)stat.f_bfree * stat.f_frsize;
+
+    return 100.0 * (1.0 - ((double)free / total));
+}
