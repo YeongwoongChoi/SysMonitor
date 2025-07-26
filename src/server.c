@@ -1,15 +1,26 @@
 #include "server.h"
 #include "resource.h"
 
-void print_log(char *buf, const char *log_type, const char *format, ...) {
+void print_log(char **buf, int *remained, const char *log_type, const char *format, ...) {
     va_list args;
     va_start(args, format);
 
     char message[500];
     vsnprintf(message, sizeof(message), format, args);
 
-    if (buf)
-        snprintf(buf, BUF_SIZE, "%s%s%s\n", log_type, message, LOG_DEFAULT);
+    if (buf && remained && *buf && *remained > 0) {
+		int written = snprintf(*buf, *remained, "%s%s%s\n", log_type, message, LOG_DEFAULT);
+		if (written > 0) {
+			if (written < *remained) {
+				*buf += written;
+				*remained -= written;
+			}
+			else {
+				*buf += *remained;
+				*remained = 0;
+			}
+		}
+	}
     else
         printf("%s%s%s\n", log_type, message, LOG_DEFAULT);
 
