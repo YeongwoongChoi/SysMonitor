@@ -20,8 +20,9 @@ typedef struct {
     unsigned long long guest_nice;
 } CPUStat;
 
-CPUStat read_cpu_stat();
-double get_cpu_usage();
+long get_core_count();
+CPUStat *read_cpu_stats(const int core_count);
+double get_cpu_usage(CPUStat prev, CPUStat curr);
 double get_mem_usage();
 double get_disk_usage(const char *path);
 #endif
