@@ -27,6 +27,28 @@ void print_log(char **buf, int *remained, const char *log_type, const char *form
     va_end(args);
 }
 
+void print_cpu_usage(char *buf, int *remained) {
+	const int core_count = get_core_count();
+	CPUStat *prev_stats = read_cpu_stats(core_count);
+	usleep(300000);
+	CPUStat *curr_stats = read_cpu_stats(core_count);
+
+	print_log(&buf, remained, LOG_INFO, "%-31s\n===============================", 
+		"[SysMonitor] CPU Core Usages");
+	print_log(&buf, remained, LOG_INFO, 
+		"|    %-8s  |  %7s     |\n===============================", "Core #", "Load");
+	
+	print_log(&buf, remained, LOG_INFO, "| %-10s   | %10.2lf %% |", 
+		"All Cores", get_cpu_usage(prev_stats[0], curr_stats[0]));
+	for (int i = 1; i <= core_count; ++i)
+		print_log(&buf, remained, LOG_INFO, "| Core %-7d | %10.2lf %% |", i,
+			get_cpu_usage(prev_stats[i], curr_stats[i]));
+
+	print_log(&buf, remained, LOG_INFO, "===============================");
+	free(prev_stats);
+	free(curr_stats);
+}
+
 const char *get_time() {
 	static char datetime[30];
 	time_t raw = time(NULL);
@@ -78,7 +100,7 @@ int main() {
 		int remained = BUF_SIZE;
 
 		if (!strcmp(request_type, "cpu"))
-			print_log(&p, &remained, LOG_INFO, "[SysMonitor] CPU Usage: %.2f%%", get_cpu_usage());
+			print_cpu_usage(p, &remained);
 		else if (!strcmp(request_type, "mem"))
         	print_log(&p, &remained, LOG_INFO, "[SysMonitor] Mem Usage: %.2f%%", get_mem_usage());
 		else if (!strcmp(request_type, "disk"))
