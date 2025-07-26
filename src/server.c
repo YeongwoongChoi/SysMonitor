@@ -44,7 +44,7 @@ int main() {
 	char buf[BUF_SIZE];
 
 	if ((socket_descriptor = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		print_log(NULL, LOG_ERROR, "Error occurred while socket() executed.");
+		print_log(NULL, NULL, LOG_ERROR, "Error occurred while socket() executed.");
 		exit(1);
 	}
 
@@ -53,48 +53,53 @@ int main() {
 	server_addr.sin_addr.s_addr = INADDR_ANY;
 
 	if (bind(socket_descriptor, (struct sockaddr *)(&server_addr), sizeof(server_addr)) < 0) {
-		print_log(NULL, LOG_ERROR, "Error occurred while binding socket.");
+		print_log(NULL, NULL, LOG_ERROR, "Error occurred while binding socket.");
 		exit(1);
 	}
-	print_log(NULL, LOG_SUCCESS, "Binding was successful.");
-	print_log(NULL, LOG_INFO, "Monitoring agent started at %s on port %d.", get_time(), PORT_NUM);
+	print_log(NULL, NULL, LOG_SUCCESS, "Binding was successful.");
+	print_log(NULL, NULL, LOG_INFO, "Monitoring agent started at %s on port %d.", get_time(), PORT_NUM);
 
 	int received, sent;
+	char *request_type;
 
 	while (1) {
 		received = recvfrom(socket_descriptor, buf, BUF_SIZE, 0, 
 			(struct sockaddr *)(&client_addr), &address_length);
 
 		if (received < 0) {
-			print_log(NULL, LOG_ERROR, "Error occurred while receiving data from client.");
+			print_log(NULL, NULL, LOG_ERROR, "Error occurred while receiving data from client.");
 			exit(1);
 		}
 		buf[received] = '\0';
 		buf[strcspn(buf, "\r\n")] = '\0';
+		request_type = strdup(buf);
+		memset(buf, 0, BUF_SIZE);
+		char *p = buf;
+		int remained = BUF_SIZE;
 
-		if (!strcmp(buf, "cpu"))
-			print_log(buf, LOG_INFO, "[SysMonitor] CPU Usage: %.2f%%", get_cpu_usage());
-		else if (!strcmp(buf, "mem"))
-        	print_log(buf, LOG_INFO, "[SysMonitor] Mem Usage: %.2f%%", get_mem_usage());
-		else if (!strcmp(buf, "disk"))
-            print_log(buf, LOG_INFO, "[SysMonitor] Disk Usage: %.2f%%", get_disk_usage("/"));
+		if (!strcmp(request_type, "cpu"))
+			print_log(&p, &remained, LOG_INFO, "[SysMonitor] CPU Usage: %.2f%%", get_cpu_usage());
+		else if (!strcmp(request_type, "mem"))
+        	print_log(&p, &remained, LOG_INFO, "[SysMonitor] Mem Usage: %.2f%%", get_mem_usage());
+		else if (!strcmp(request_type, "disk"))
+            print_log(&p, &remained, LOG_INFO, "[SysMonitor] Disk Usage: %.2f%%", get_disk_usage("/"));
         else
-            print_log(buf, LOG_ERROR, "[SysMonitor] Invalid request. %s", 
+            print_log(&p, &remained, LOG_ERROR, "[SysMonitor] Invalid request. %s", 
                 "Request should be one of these: [cpu|mem|disk]");
 
 		int total_sent = 0;
-		const int length = strlen(buf);
-
+		const int length = BUF_SIZE - remained;
 		while (total_sent < length) {
 			sent = sendto(socket_descriptor, buf + total_sent, length - total_sent, 0, 
 				(struct sockaddr *)(&client_addr), address_length);
 
 			if (sent == -1) {
-				print_log(NULL, LOG_ERROR, "Error occurred while sending data to client.");
+				print_log(NULL, NULL, LOG_ERROR, "Error occurred while sending data to client.");
 				exit(1);
 			}
 			total_sent += sent;
 		}
+		free(request_type);
 	}
 	close(socket_descriptor);
 	return 0;
