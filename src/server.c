@@ -49,6 +49,33 @@ void print_cpu_usage(char *buf, int *remained) {
 	free(curr_stats);
 }
 
+void print_mem_usage(char *buf, int *remained) {
+	MemStat stat = read_mem_stat();
+	unsigned long long used = stat.mem_total - stat.mem_free - stat.buffers - stat.cached;
+
+	print_log(&buf, remained, LOG_INFO, 
+		"%-48s\n================================================", "[SysMonitor] Memory Usages");
+	print_log(&buf, remained, LOG_INFO, 
+		"|     %-8s |     %-8s | %-15s|\n================================================",
+		"Name", "Size", "Proportion (%)");
+	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
+		"Total", convert_unit(stat.mem_total), 100.00);
+	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
+		"Used", convert_unit(used), get_mem_proportion(used, stat.mem_total));
+	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
+		"Available", convert_unit(stat.mem_available), 
+		get_mem_proportion(stat.mem_available, stat.mem_total));
+	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
+		"Free", convert_unit(stat.mem_free), get_mem_proportion(stat.mem_free, stat.mem_total));
+	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
+		"Shared", convert_unit(stat.shared), get_mem_proportion(stat.shared, stat.mem_total));
+	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
+		"Buffers", convert_unit(stat.buffers), get_mem_proportion(stat.buffers, stat.mem_total));
+	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
+		"Cached", convert_unit(stat.cached), get_mem_proportion(stat.cached, stat.mem_total));
+	print_log(&buf, remained, LOG_INFO, "================================================");
+}	
+
 const char *convert_unit(unsigned long long byte) {
 	static char buf[32];
 	if (byte >= (1 << 30))
