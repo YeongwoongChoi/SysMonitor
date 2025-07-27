@@ -49,6 +49,19 @@ void print_cpu_usage(char *buf, int *remained) {
 	free(curr_stats);
 }
 
+const char *convert_unit(unsigned long long byte) {
+	static char buf[32];
+	if (byte >= (1 << 30))
+		snprintf(buf, sizeof(buf), "%.2f GB", byte / (double)(1 << 30));
+	else if (byte >= (1 << 20))
+		snprintf(buf, sizeof(buf), "%.2f MB", byte / (double)(1 << 20));
+	else if (byte >= (1 << 10))
+		snprintf(buf, sizeof(buf), "%.2f KB", byte / (double)(1 << 10));
+	else
+		snprintf(buf, sizeof(buf), "%llu", byte);
+	return buf;
+}
+
 const char *get_time() {
 	static char datetime[30];
 	time_t raw = time(NULL);
@@ -102,7 +115,7 @@ int main() {
 		if (!strcmp(request_type, "cpu"))
 			print_cpu_usage(p, &remained);
 		else if (!strcmp(request_type, "mem"))
-        	print_log(&p, &remained, LOG_INFO, "[SysMonitor] Mem Usage: %.2f%%", get_mem_usage());
+        	print_mem_usage(p, &remained);
 		else if (!strcmp(request_type, "disk"))
             print_log(&p, &remained, LOG_INFO, "[SysMonitor] Disk Usage: %.2f%%", get_disk_usage("/"));
         else

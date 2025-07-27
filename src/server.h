@@ -14,4 +14,5 @@
 // Write message on buf if both buf and remained are given, otherwise print on stdout
 void print_log(char **buf, int *remained, const char *log_type, const char *format, ...);
 void print_cpu_usage(char *buf, int *remained);
+const char *convert_unit(unsigned long long byte);
 const char *get_time();
