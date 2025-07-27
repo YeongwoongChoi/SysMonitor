@@ -76,18 +76,7 @@ double get_cpu_usage(CPUStat prev, CPUStat curr) {
     return 100.0 * active / total;
 }
 
-double get_mem_proportion(unsigned long long size, unsigned long long mem_total) {
-    return mem_total ? 100.0 * ((double)size / mem_total): 0.0;
+double get_proportion(unsigned long long size, unsigned long long total) {
+    return total ? 100.0 * ((double)size / total): 0.0;
 }
 
-double get_disk_usage(const char *path) {
-    struct statvfs stat;
-
-    if (statvfs(path, &stat) != 0)
-        return 0.0;
-
-    unsigned long long total = (unsigned long long)stat.f_blocks * stat.f_frsize;
-    unsigned long long free = (unsigned long long)stat.f_bfree * stat.f_frsize;
-
-    return 100.0 * (1.0 - ((double)free / total));
-}

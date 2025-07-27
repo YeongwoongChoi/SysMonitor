@@ -61,18 +61,18 @@ void print_mem_usage(char *buf, int *remained) {
 	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
 		"Total", convert_unit(stat.mem_total), 100.00);
 	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
-		"Used", convert_unit(used), get_mem_proportion(used, stat.mem_total));
+		"Used", convert_unit(used), get_proportion(used, stat.mem_total));
 	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
 		"Available", convert_unit(stat.mem_available), 
-		get_mem_proportion(stat.mem_available, stat.mem_total));
+		get_proportion(stat.mem_available, stat.mem_total));
 	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
-		"Free", convert_unit(stat.mem_free), get_mem_proportion(stat.mem_free, stat.mem_total));
+		"Free", convert_unit(stat.mem_free), get_proportion(stat.mem_free, stat.mem_total));
 	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
-		"Shared", convert_unit(stat.shared), get_mem_proportion(stat.shared, stat.mem_total));
+		"Shared", convert_unit(stat.shared), get_proportion(stat.shared, stat.mem_total));
 	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
-		"Buffers", convert_unit(stat.buffers), get_mem_proportion(stat.buffers, stat.mem_total));
+		"Buffers", convert_unit(stat.buffers), get_proportion(stat.buffers, stat.mem_total));
 	print_log(&buf, remained, LOG_INFO, "| %-10s   |   %10s | %12.2lf %% |", 
-		"Cached", convert_unit(stat.cached), get_mem_proportion(stat.cached, stat.mem_total));
+		"Cached", convert_unit(stat.cached), get_proportion(stat.cached, stat.mem_total));
 	print_log(&buf, remained, LOG_INFO, "================================================");
 }	
 
