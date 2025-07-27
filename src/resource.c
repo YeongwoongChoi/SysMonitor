@@ -35,6 +35,34 @@ CPUStat *read_cpu_stats(const int core_count) {
     return stats;
 }
 
+MemStat read_mem_stat() {
+    MemStat stat = {0, };
+    FILE *f = fopen("/proc/meminfo", "r");
+    if (!f)
+        return stat;
+
+    char buf[128], key[64];
+    unsigned long long value;
+    while (fgets(buf, sizeof(buf), f)) {
+        sscanf(buf, "%63s %llu", key, &value);
+        value *= (1 << 10);
+        if (!strcmp(key, "MemTotal:"))
+            stat.mem_total = value;
+        else if (!strcmp(key, "MemFree:"))
+            stat.mem_free = value;
+        else if (!strcmp(key, "MemAvailable:"))
+            stat.mem_available = value;
+        else if (!strcmp(key, "Buffers:"))
+            stat.buffers = value;
+        else if (!strcmp(key, "Cached:"))
+            stat.cached = value;
+        else if (!strcmp(key, "Shmem:"))
+            stat.shared = value;
+    }
+    fclose(f);
+    return stat;
+}
+
 double get_cpu_usage(CPUStat prev, CPUStat curr) {
     unsigned long long idle = (curr.idle + curr.iowait) - (prev.idle + prev.iowait);
     unsigned long long active =
@@ -48,28 +76,8 @@ double get_cpu_usage(CPUStat prev, CPUStat curr) {
     return 100.0 * active / total;
 }
 
-double get_mem_usage() {
-    FILE *f = fopen("/proc/meminfo", "r");
-    unsigned long long mem_total = 0, mem_available = 0;
-
-    char buf[128], key[64];
-    unsigned long long value;
-    while (fgets(buf, sizeof(buf), f)) {
-        sscanf(buf, "%63s %llu", key, &value);
-        if (!strcmp(key, "MemTotal:"))
-            mem_total = value;
-        else if (!strcmp(key, "MemAvailable:"))
-            mem_available = value;
-
-        if (mem_total && mem_available)
-            break;
-    }
-    fclose(f);
-
-    if (mem_total == 0)
-        return 0.0;
-
-    return 100.0 * (1.0 - ((double)mem_available / mem_total));
+double get_mem_proportion(unsigned long long size, unsigned long long mem_total) {
+    return mem_total ? 100.0 * ((double)size / mem_total): 0.0;
 }
 
 double get_disk_usage(const char *path) {
