@@ -1,5 +1,6 @@
 #include "server.h"
 #include "resource.h"
+#include "module.h"
 
 void print_log(char **buf, int *remained, const char *log_type, const char *format, ...) {
     va_list args;

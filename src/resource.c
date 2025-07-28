@@ -124,3 +124,16 @@ int is_filesystem_included(const char *filesystem) {
     }
     return 0;
 }
+
+const char *convert_unit(unsigned long long byte) {
+	static char buf[32];
+	if (byte >= (1 << 30))
+		snprintf(buf, sizeof(buf), "%.2f GB", byte / (double)(1 << 30));
+	else if (byte >= (1 << 20))
+		snprintf(buf, sizeof(buf), "%.2f MB", byte / (double)(1 << 20));
+	else if (byte >= (1 << 10))
+		snprintf(buf, sizeof(buf), "%.2f KB", byte / (double)(1 << 10));
+	else
+		snprintf(buf, sizeof(buf), "%llu", byte);
+	return buf;
+}

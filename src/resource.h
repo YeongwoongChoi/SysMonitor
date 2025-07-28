@@ -43,4 +43,5 @@ MemStat read_mem_stat();
 DiskInfo *read_disk_info(int *count);
 double get_cpu_usage(CPUStat prev, CPUStat curr);
 double get_proportion(unsigned long long size, unsigned long long total);
+const char *convert_unit(unsigned long long byte);
 #endif
