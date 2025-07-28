@@ -76,6 +76,39 @@ void print_mem_usage(char *buf, int *remained) {
 	print_log(&buf, remained, LOG_INFO, "================================================");
 }	
 
+void print_disk_usage(char *buf, int *remained) {
+	int count;
+	DiskInfo *infos = read_disk_info(&count);
+	if (!infos)
+		return;
+
+	print_log(&buf, remained, LOG_INFO,
+		"%-82s\
+		\n==================================================================================",
+		"[SysMonitor] Disk Usages");
+	print_log(&buf, remained, LOG_INFO,
+		"|     %-10s |    %-13s |           %-10s      | %-15s|\
+		\n==================================================================================",
+		"Device", "Mounted at", "Size", "Proportion (%)");
+	
+	struct statvfs stat;
+	for (int i = 0; i < count; ++i) {
+		if (!statvfs(infos[i].mountpoint, &stat)) {
+			unsigned long long disk_total = (unsigned long long)stat.f_blocks * stat.f_frsize;
+			unsigned long long disk_free = (unsigned long long)stat.f_bfree * stat.f_frsize;
+			unsigned long long disk_used = disk_total - disk_free;
+			
+			char *tmp = strdup(convert_unit(disk_used));
+			print_log(&buf, remained, LOG_INFO, "| %-14s | %-17s| %11s / %11s | %12.2lf %% |",
+				infos[i].device, infos[i].mountpoint, tmp, convert_unit(disk_total),
+				get_proportion(disk_used, disk_total));
+			free(tmp);
+		}
+	}
+	print_log(&buf, remained, LOG_INFO,
+		"==================================================================================");
+}
+
 const char *convert_unit(unsigned long long byte) {
 	static char buf[32];
 	if (byte >= (1 << 30))
