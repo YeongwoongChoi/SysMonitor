@@ -29,9 +29,18 @@ typedef struct {
     unsigned long long shared;
 } MemStat;
 
+typedef struct {
+    char device[32];
+    char mountpoint[32];
+    char filesystem[32];
+} DiskInfo;
+
+int is_filesystem_included(const char *filesystem);
+
 long get_core_count();
 CPUStat *read_cpu_stats(const int core_count);
 MemStat read_mem_stat();
+DiskInfo *read_disk_info(int *count);
 double get_cpu_usage(CPUStat prev, CPUStat curr);
 double get_proportion(unsigned long long size, unsigned long long total);
 #endif

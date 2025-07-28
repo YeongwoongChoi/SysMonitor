@@ -1,5 +1,9 @@
 #include "resource.h"
 
+const char *included_filesystem[] = {
+    "ext2", "ext3", "ext4", "xfs", "btrfs", "vfat", "exfat", "ntfs", "zfs"
+};
+
 inline long get_core_count() { return sysconf(_SC_NPROCESSORS_ONLN); }
 
 CPUStat *read_cpu_stats(const int core_count) {
@@ -63,6 +67,38 @@ MemStat read_mem_stat() {
     return stat;
 }
 
+DiskInfo *read_disk_info(int *count) {
+    FILE *f = fopen("/proc/mounts", "r");
+    *count = 0;
+    if (!f)
+        return NULL;
+
+    int allocated = 16;
+    DiskInfo *infos = (DiskInfo *)malloc(sizeof(DiskInfo) * allocated);
+    memset(infos, 0, sizeof(DiskInfo) * allocated);
+    char buf[128];
+    char device[32], mountpoint[32], filesystem[32];
+
+    while (fgets(buf, sizeof(buf), f)) {
+        if (sscanf(buf, "%31s %31s %31s", device, mountpoint, filesystem) != 3)
+            continue;
+        
+        if (!is_filesystem_included(filesystem))
+            continue;
+
+        strncpy(infos[*count].device, device, sizeof(infos[*count].device));
+        strncpy(infos[*count].mountpoint, mountpoint, sizeof(infos[*count].mountpoint));
+        strncpy(infos[*count].filesystem, filesystem, sizeof(infos[*count].filesystem));
+        
+        if (++(*count) >= allocated) {
+            allocated <<= 1;
+            infos = realloc(infos, sizeof(DiskInfo) * allocated);
+        }
+    }
+    fclose(f);
+    return infos;
+}
+
 double get_cpu_usage(CPUStat prev, CPUStat curr) {
     unsigned long long idle = (curr.idle + curr.iowait) - (prev.idle + prev.iowait);
     unsigned long long active =
@@ -80,3 +116,11 @@ double get_proportion(unsigned long long size, unsigned long long total) {
     return total ? 100.0 * ((double)size / total): 0.0;
 }
 
+int is_filesystem_included(const char *filesystem) {
+    int count = sizeof(included_filesystem) / sizeof(*included_filesystem);
+    for (int i = 0; i < count; ++i) {
+        if (!strcmp(filesystem, included_filesystem[i]))
+            return 1;
+    }
+    return 0;
+}
