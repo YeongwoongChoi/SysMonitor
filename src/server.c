@@ -149,6 +149,7 @@ int main() {
 
 	if (bind(socket_descriptor, (struct sockaddr *)(&server_addr), sizeof(server_addr)) < 0) {
 		print_log(NULL, NULL, LOG_ERROR, "Error occurred while binding socket.");
+		close(socket_descriptor);
 		exit(1);
 	}
 	print_log(NULL, NULL, LOG_SUCCESS, "Binding was successful.");
@@ -177,7 +178,7 @@ int main() {
 		else if (!strcmp(request_type, "mem"))
         	print_mem_usage(p, &remained);
 		else if (!strcmp(request_type, "disk"))
-            print_log(&p, &remained, LOG_INFO, "[SysMonitor] Disk Usage: %.2f%%", get_disk_usage("/"));
+            print_disk_usage(p, &remained);
         else
             print_log(&p, &remained, LOG_ERROR, "[SysMonitor] Invalid request. %s", 
                 "Request should be one of these: [cpu|mem|disk]");
@@ -194,6 +195,8 @@ int main() {
 			}
 			total_sent += sent;
 		}
+		inet_ntop(AF_INET, &(client_addr.sin_addr), buf, INET_ADDRSTRLEN);
+		print_log(NULL, NULL, LOG_INFO, "Sent %u bytes to client(%s).", BUF_SIZE - remained, buf);
 		free(request_type);
 	}
 	close(socket_descriptor);
