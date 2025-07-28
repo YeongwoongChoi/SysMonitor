@@ -182,18 +182,14 @@ int main() {
         else
             print_log(&p, &remained, LOG_ERROR, "[SysMonitor] Invalid request. %s", 
                 "Request should be one of these: [cpu|mem|disk]");
-
-		int total_sent = 0;
-		const int length = BUF_SIZE - remained;
-		while (total_sent < length) {
-			sent = sendto(socket_descriptor, buf + total_sent, length - total_sent, 0, 
+		
+		sent = sendto(socket_descriptor, buf, BUF_SIZE - remained, 0, 
 				(struct sockaddr *)(&client_addr), address_length);
 
-			if (sent == -1) {
-				print_log(NULL, NULL, LOG_ERROR, "Error occurred while sending data to client.");
-				exit(1);
-			}
-			total_sent += sent;
+		if (sent == -1) {
+			print_log(NULL, NULL, LOG_ERROR, "Error occurred while sending data to client.");
+			free(request_type);
+			exit(1);
 		}
 		inet_ntop(AF_INET, &(client_addr.sin_addr), buf, INET_ADDRSTRLEN);
 		print_log(NULL, NULL, LOG_INFO, "Sent %u bytes to client(%s).", BUF_SIZE - remained, buf);
