@@ -82,7 +82,29 @@ void *get_module_handler(const char *request_type) {
 	return handler;
 }
 
-char *handle_request(int sock, const char *request_type) {
+void initialize_server(struct sockaddr_in *server_addr) {
+	atexit(cleanup_modules);
+	signal(SIGINT, terminate);
+
+	if ((socket_descriptor = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+		print_log(NULL, NULL, LOG_ERROR, "Error occurred while socket() executed.");
+		exit(1);
+	}
+
+	server_addr->sin_family = AF_INET;
+	server_addr->sin_port = htons(PORT_NUM);
+	server_addr->sin_addr.s_addr = INADDR_ANY;
+
+	if (bind(socket_descriptor, (struct sockaddr *)server_addr, sizeof(*server_addr)) < 0) {
+		print_log(NULL, NULL, LOG_ERROR, "Error occurred while binding socket.");
+		close(socket_descriptor);
+		exit(1);
+	}
+	print_log(NULL, NULL, LOG_SUCCESS, "Binding was successful.");
+	print_log(NULL, NULL, LOG_INFO, "Monitoring agent started at %s on port %d.", get_time(), PORT_NUM);
+}
+
+char *get_response(int sock, const char *request_type) {
 	char *error_message = NULL;
 	void *handler = get_module_handler(request_type);
 	if (!handler)
@@ -107,27 +129,9 @@ char *handle_request(int sock, const char *request_type) {
 int main() {
 	struct sockaddr_in client_addr, server_addr;
 	socklen_t address_length = sizeof(server_addr);
+
+	initialize_server(&server_addr);
 	char buf[BUF_SIZE], client_ip[INET_ADDRSTRLEN];
-
-	atexit(cleanup_modules);
-	signal(SIGINT, terminate);
-
-	if ((socket_descriptor = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		print_log(NULL, NULL, LOG_ERROR, "Error occurred while socket() executed.");
-		exit(1);
-	}
-
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(PORT_NUM);
-	server_addr.sin_addr.s_addr = INADDR_ANY;
-
-	if (bind(socket_descriptor, (struct sockaddr *)(&server_addr), sizeof(server_addr)) < 0) {
-		print_log(NULL, NULL, LOG_ERROR, "Error occurred while binding socket.");
-		close(socket_descriptor);
-		exit(1);
-	}
-	print_log(NULL, NULL, LOG_SUCCESS, "Binding was successful.");
-	print_log(NULL, NULL, LOG_INFO, "Monitoring agent started at %s on port %d.", get_time(), PORT_NUM);
 
 	int received;
 	char *request_type, *response;
@@ -149,7 +153,7 @@ int main() {
 		memset(buf, 0, BUF_SIZE);
 		
 		if (!strcmp(request_type, "cpu") || !strcmp(request_type, "mem") || !strcmp(request_type, "disk")) {
-			response = handle_request(socket_descriptor, request_type);
+			response = get_response(socket_descriptor, request_type);
 			if (response) {
 				print_log(&p, &received, LOG_INFO, response);
 				inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
