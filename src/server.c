@@ -2,6 +2,10 @@
 #include "resource.h"
 #include "module.h"
 
+static CachedModule loaded_modules[TOTAL_MODULES];
+static int module_count = 0;
+static int socket_descriptor;
+
 void print_log(char **buf, int *remained, const char *log_type, const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -37,23 +41,58 @@ const char *get_time() {
 	return datetime;
 }
 
-char *handle_request(int sock, const char *request_type) {
-	char buf[BUF_SIZE];
-	snprintf(buf, BUF_SIZE, "bin/modules/%s.so", request_type);
-	char *error_message = NULL;
+void cleanup_modules() {
+	print_log(NULL, NULL, LOG_INFO, "Cleaning up loaded modules.");
+	for (int i = 0; i < module_count; ++i) {
+		if (loaded_modules[i].module_handler) {
+			dlclose(loaded_modules[i].module_handler);
+			print_log(NULL, NULL, LOG_INFO, "Module %s closed.", loaded_modules[i].name);
+		}
+	}
 
-	void *handler = dlopen(buf, RTLD_NOW);
+	if (socket_descriptor > 0)
+		close(socket_descriptor);
+}
+
+void terminate(int sig) {
+	print_log(NULL, NULL, LOG_INFO, "SIGINT received. Server closed.");
+	exit(0);
+}
+
+void *get_module_handler(const char *request_type) {
+	for (int i = 0; i < module_count; ++i) {
+		if (!strcmp(loaded_modules[i].name, request_type))
+			return loaded_modules[i].module_handler;
+	}
+	char module_path[BUF_SIZE];
+	snprintf(module_path, BUF_SIZE, "bin/modules/%s.so", request_type);
+
+	void *handler = dlopen(module_path, RTLD_NOW);
 	if (!handler) {
-		error_message = dlerror();
-		print_log(NULL, NULL, LOG_ERROR, "Cannot open module %s\n %s\n", buf, error_message);
+		print_log(NULL, NULL, LOG_ERROR, "Cannot open module %s: %s", module_path, dlerror());
 		return NULL;
 	}
+	print_log(NULL, NULL, LOG_SUCCESS, "Module %s loaded.", module_path);
+
+	if (module_count < TOTAL_MODULES) {
+		strcpy(loaded_modules[module_count].name, request_type);
+		loaded_modules[module_count].module_handler = handler;
+		module_count++;
+	}
+	return handler;
+}
+
+char *handle_request(int sock, const char *request_type) {
+	char *error_message = NULL;
+	void *handler = get_module_handler(request_type);
+	if (!handler)
+		return NULL;
+	
 	dlerror();		// flush previous error
 	Module* (*get_module)() = dlsym(handler, "get_module");
 
 	if (!get_module && (error_message = dlerror())) {
 		print_log(NULL, NULL, LOG_ERROR, "Cannot find symbol 'get_module': %s", error_message);
-		dlclose(handler);
 		return NULL;
 	}
 
@@ -66,11 +105,12 @@ char *handle_request(int sock, const char *request_type) {
 }
 
 int main() {
-	int socket_descriptor;
 	struct sockaddr_in client_addr, server_addr;
-
 	socklen_t address_length = sizeof(server_addr);
 	char buf[BUF_SIZE], client_ip[INET_ADDRSTRLEN];
+
+	atexit(cleanup_modules);
+	signal(SIGINT, terminate);
 
 	if ((socket_descriptor = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		print_log(NULL, NULL, LOG_ERROR, "Error occurred while socket() executed.");
