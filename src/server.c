@@ -104,6 +104,47 @@ void initialize_server(struct sockaddr_in *server_addr) {
 	print_log(NULL, NULL, LOG_INFO, "Monitoring agent started at %s on port %d.", get_time(), PORT_NUM);
 }
 
+void process_request(struct sockaddr_in *client_addr, socklen_t address_length) {
+	char buf[BUF_SIZE], client_ip[INET_ADDRSTRLEN];
+
+	int received;
+	char *request_type, *response;
+
+	received = recvfrom(socket_descriptor, buf, BUF_SIZE, 0, 
+			(struct sockaddr *)client_addr, &address_length);
+
+	if (received < 0) {
+		print_log(NULL, NULL, LOG_ERROR, "Error occurred while receiving data from client.");
+		exit(1);
+	}
+	buf[received] = '\0';
+	buf[strcspn(buf, "\r\n")] = '\0';
+	request_type = strdup(buf);
+	
+	char *p = buf;
+	received = BUF_SIZE;
+	memset(buf, 0, BUF_SIZE);
+	
+	if (!strcmp(request_type, "cpu") || !strcmp(request_type, "mem") || !strcmp(request_type, "disk")) {
+		response = get_response(socket_descriptor, request_type);
+		if (response) {
+			print_log(&p, &received, LOG_INFO, response);
+			free(response);
+			inet_ntop(AF_INET, &(client_addr->sin_addr), client_ip, INET_ADDRSTRLEN);
+			print_log(NULL, NULL, LOG_INFO, "Sent %u bytes to client(%s) for request '%s'.", 
+				BUF_SIZE - received, client_ip, request_type);
+		}
+		else
+			print_log(NULL, NULL, LOG_ERROR, "Error occurred while getting response from module.");
+	}
+	else
+		print_log(&p, &received, LOG_ERROR, "[SysMonitor] Invalid request. %s", 
+			"Request should be one of these: [cpu|mem|disk]", request_type);
+	sendto(socket_descriptor, buf, BUF_SIZE - received, 0, 
+			(struct sockaddr *)client_addr, address_length);
+	free(request_type);
+}
+
 char *get_response(int sock, const char *request_type) {
 	char *error_message = NULL;
 	void *handler = get_module_handler(request_type);
@@ -131,44 +172,8 @@ int main() {
 	socklen_t address_length = sizeof(server_addr);
 
 	initialize_server(&server_addr);
-	char buf[BUF_SIZE], client_ip[INET_ADDRSTRLEN];
 
-	int received;
-	char *request_type, *response;
-
-	while (1) {
-		received = recvfrom(socket_descriptor, buf, BUF_SIZE, 0, 
-			(struct sockaddr *)(&client_addr), &address_length);
-
-		if (received < 0) {
-			print_log(NULL, NULL, LOG_ERROR, "Error occurred while receiving data from client.");
-			exit(1);
-		}
-		buf[received] = '\0';
-		buf[strcspn(buf, "\r\n")] = '\0';
-		request_type = strdup(buf);
-		
-		char *p = buf;
-		received = BUF_SIZE;
-		memset(buf, 0, BUF_SIZE);
-		
-		if (!strcmp(request_type, "cpu") || !strcmp(request_type, "mem") || !strcmp(request_type, "disk")) {
-			response = get_response(socket_descriptor, request_type);
-			if (response) {
-				print_log(&p, &received, LOG_INFO, response);
-				inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
-				print_log(NULL, NULL, LOG_INFO, "Sent %u bytes to client(%s) for request '%s'.", 
-					BUF_SIZE - received, client_ip, request_type);
-			}
-			else
-				print_log(NULL, NULL, LOG_ERROR, "Error occurred while getting response from module.");
-		}
-        else
-            print_log(&p, &received, LOG_ERROR, "[SysMonitor] Invalid request. %s", 
-                "Request should be one of these: [cpu|mem|disk]", request_type);
-		sendto(socket_descriptor, buf, BUF_SIZE - received, 0, 
-				(struct sockaddr *)(&client_addr), address_length);
-		free(request_type);
-	}
+	while (1)
+		process_request(&client_addr, address_length);
 	return 0;
 }
