@@ -27,7 +27,6 @@
 ### 디렉토리 구조
 ```bash
 ├── bin
-│   ├── lib ── libresource.a (사용량 계산을 위한 정적 라이브러리)
 │   ├── modules (서버에서 사용량을 응답하기 위해 사용하는 모듈)
 │   │   ├── cpu.so
 │   │   ├── mem.so
@@ -55,62 +54,6 @@
     - `make server`: 서버 바이너리만 빌드한다.
     - `make modules`: CPU, 메모리, 디스크 사용량을 응답할 모듈들을 모두 빌드한다.
     - `make clean`: `bin` 하의 모든 빌드 결과물들을 삭제한다.
----
-
-### Makefile 동작 과정 상세 설명
-사용자가 터미널에 `make` 라고 입력하면, Makefile은 맨 위에 있는 첫 번째 규칙인 `all`을 최종 목표로 삼고 작업을 시작한다.
-
-#### 변수 설정
-- 컴파일러와 컴파일러 옵션을 설정한다.
-- 동적 로드를 위한 `dlopen`, `dlsym` 함수 사용을 위해 링킹 시에 `-ldl` 옵션을 사용한다.
-- 공유 라이브러리 생성 시 필요한 `-shared`, `-fPIC`를 사용한다.
-
-#### **시작점: `all` 목표**
-- `all: server modules`
-- `make`는 `all`을 만들기 위해 두 가지 의존성인 `server`와 `modules` 타켓에 의존한다. 
-- `make`는 이 의존성들을 순서대로 해결하기 시작한다.
----
-
-#### **1단계: `server` 타겟**
-- `make`는 `bin/server`를 만들기 위해 `server: $(SERVER_SRCS) $(STATIC_LIB)` 규칙을 확인한다.
-
-* **목표:** `bin/server`
-* **의존성:** `bin/server.c`와 `bin/libresource.a`
-* **동작**
-    - 우선 $(STATIC_LIB)가 최신 상태인지 확인한다.
-    - 만약 `bin/lib/libresource.a` 파일이 없거나, 소스 파일(`src/resource.c`)보다 오래되었다면, 아래의 `$(STATIC_LIB)` 타겟을 먼저 실행한다.
-    - `$(STATIC_LIB)`가 준비되면, `gcc`를 실행하여 `server` 실행 파일을 생성한다.
-        - `-o $(BIN_DIR)/server`: `bin/server` 라는 이름의 실행 파일을 만든다.
-        - `-L$(LIB_DIR)`: `bin/lib` 디렉토리를 라이브러리 검색 경로로 추가한다.
-        - `-lresource`: `libresource.a` 라이브러리를 링크한다.
-
-#### **`$(STATIC_LIB)` 타겟**
-정적 라이브러리를 생성한다.
-- **의존성:** `bin/obj/resource.o` 파일 (`$(COMMON_OBJ)` 타겟)에 의존
-- **동작**
-    - 우선 `$(COMMON_OBJ)`가 최신인지 확인하고, 필요하면 아래의 `$(COMMON_OBJ)` 타겟을 먼저 실행하여 `resource.o` 파일을 생성한다.
-    - `ar rcs` 를 통해 `resource.o` 파일을 묶어 `libresource.a`를 생성한다.
----
-
-#### **2단계: `modules` 타겟**
-- **의존성:** `bin/modules` 하의 각 `.so` 파일에 의존
-- **동작:** 각 `.so` 파일이 최신 상태인지 확인하고, 그렇지 않다면 아래의 패턴 규칙 (`$(MODULES_DEST_DIR)/%.so`) 타겟을 실행하여 파일을 생성한다.
-
-#### **`$(MODULES_DEST_DIR)/%.so` 타겟**
-`$(MODULES_DEST_DIR)`로 전체 모듈 소스에 대해 `.so` 파일을 생성한다. <br/>
-아래는 `cpu.so` 파일이 생성되는 과정으로, `mem.so`, `disk.so`도 동일한 동작 과정을 거친다.
-- **의존성:** `src/modules/cpu_module.c`와 `bin/lib/libresource.a`
-- **동작**
-    - `$(STATIC_LIB)`가 최신인지 확인하고, 필요하면 먼저 해당 타겟에서 생성한다.
-    - `gcc` 를 실행하여 `cpu_module.c` 소스를 컴파일하고, `libresource.a`와 링크하여 `cpu.so` 공유 라이브러리 파일을 생성한다.
-        - `$@`: 타겟 이름 (`bin/modules/cpu.so`)
-        - `$<`: 첫 번째 의존성 파일 이름 (`src/modules/cpu_module.c`)
----
-
-#### **3단계: `make clean`**
-사용자가 `make clean`을 실행하면, `make`는 `clean` 규칙을 찾아 다음 명령을 실행한다.
-* `rm -rf bin`
-* 이 명령은 빌드 과정에서 생성된 모든 결과물(`bin` 디렉터리 전체)을 삭제하여, 처음부터 다시 빌드할 수 있는 상태로 만든다.
 ---
 # 실행
 - 클라이언트와 서버는 동일한 네트워크에 접속 (내부 IP를 통한 통신)
@@ -156,7 +99,7 @@
 - 초기화 이후, `while` 루프 내에서 `process_request` 함수를 무한히 호출한다.
     - 클라이언트로부터 request를 수신하고, 수신한 request에 따라 해당 클라이언트에게 응답을 제공한다.
     - 반복된 `dlopen`, `dlclose` 호출을 방지하고자, 서버에는 각 자원을 반환하는 모듈에 대한 핸들러 정보를 가지고 있다.
-        - 만약 모듈을 처음 사용하는 경우, 최초 1회 `dlopen`을 통하여 핸들러를 가져오고, 이를 캐시해둔다.
-        - 이후 반복된 모듈 호출에서는, 캐시한 핸들러 정보를 이용하여 응답을 처리한다.
+        - 만약 모듈을 처음 사용하는 경우, 최초 1회 `dlopen`을 통하여 핸들러를 가져오고, 이를 저장장해둔다.
+        - 이후 반복된 모듈 호출에서는, 저장된 핸들러 정보를 이용하여 응답을 처리한다.
         - 프로그램이 종료될 경우, `cleanup_modules` 함수에서 모든 핸들러를 닫으며 UDP 소켓도 닫고 종료한다.
 
