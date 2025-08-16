@@ -1,39 +1,27 @@
 #include "module.h"
 #include "resource.h"
 
-static log_function g_logger = NULL;
-
-void initialize_disk_module(log_function logger) {
-    g_logger = logger;
-}
-
 char *respond_disk_usage() {
-    if (!g_logger) {
-        g_logger(NULL, NULL, LOG_ERROR, "Disk module not initialized.");
-        return NULL;
-    }
     char *buf = malloc(BUF_SIZE);
-
-    if (!buf) {
-        g_logger(NULL, NULL, LOG_ERROR, "Failed to allocate memory.");
+	if (!buf) {
+        fprintf(stderr, "Failed to allocate memory.\n");
         return NULL;
     }
     memset(buf, 0, BUF_SIZE);
-    char *p = buf;
-    int remained = BUF_SIZE;
+    int offset = 0, remained = BUF_SIZE - 1;
 
     int count;
 	DiskInfo *infos = read_disk_info(&count);
 	if (!infos)
 		return NULL;
 
-	g_logger(&p, &remained, LOG_INFO,
-		"%-85s\
-		\n=====================================================================================",
+	offset += snprintf(buf + offset, remained - offset,
+		"\033[0;94m%-85s\
+		\n=====================================================================================\n",
 		"[SysMonitor] Disk Usages");
-	g_logger(&p, &remained, LOG_INFO,
+	offset += snprintf(buf + offset, remained - offset,
 		"|     %-10s |    %-16s |      %9s          |  %-15s |\
-		\n=====================================================================================",
+		\n=====================================================================================\n",
 		"Device", "Mounted at", "Size", "Proportion (%)");
 	
 	struct statvfs stat;
@@ -44,21 +32,22 @@ char *respond_disk_usage() {
 			unsigned long long disk_used = disk_total - disk_free;
 			
 			char *tmp = strdup(convert_unit(disk_used));
-			g_logger(&p, &remained, LOG_INFO, "| %-14s | %-20s| %10s / %10s | %14.2lf %% |",
+			offset += snprintf(buf + offset, remained - offset, 
+				"| %-14s | %-20s| %10s / %10s | %14.2lf %% |\n",
 				infos[i].device, infos[i].mountpoint, tmp, convert_unit(disk_total),
 				get_proportion(disk_used, disk_total));
 			free(tmp);
 		}
 	}
-	g_logger(&p, &remained, LOG_INFO,
-		"=====================================================================================");
+	offset += snprintf(buf + offset, remained - offset,
+		"=====================================================================================\n");
+	offset += snprintf(buf + offset, remained - offset, "%s", "\033[0m");
 	return buf;
 }
 
 Module *get_module() {
     static Module disk_module = {
         .name = "disk",
-        .initialize_module = initialize_disk_module,
         .respond_data = respond_disk_usage
     };
     return &disk_module;

@@ -1,44 +1,33 @@
 #include "module.h"
 #include "resource.h"
 
-static log_function g_logger = NULL;
-
-void initialize_cpu_module(log_function logger) {
-    g_logger = logger;
-}
-
 char *respond_cpu_usage() {
-    if (!g_logger) {
-        g_logger(NULL, NULL, LOG_ERROR, "CPU module not initialized.");
-        return NULL;
-    }
     char *buf = malloc(BUF_SIZE);
-
     if (!buf) {
-        g_logger(NULL, NULL, LOG_ERROR, "Failed to allocate memory.");
+        fprintf(stderr, "Failed to allocate memory.\n");
         return NULL;
     }
     memset(buf, 0, BUF_SIZE);
-    char *p = buf;
-    int remained = BUF_SIZE;
+    int offset = 0, remained = BUF_SIZE - 1;
 
     const int core_count = get_core_count();
 	CPUStat *prev_stats = read_cpu_stats(core_count);
 	usleep(300000);
 	CPUStat *curr_stats = read_cpu_stats(core_count);
 
-	g_logger(&p, &remained, LOG_INFO, "%-31s\n===============================", 
-		"[SysMonitor] CPU Core Usages");
-	g_logger(&p, &remained, LOG_INFO, 
-		"|    %-8s  |  %7s     |\n===============================", "Core #", "Load");
-	
-	g_logger(&p, &remained, LOG_INFO, "| %-10s   | %10.2lf %% |", 
-		"All Cores", get_cpu_usage(prev_stats[0], curr_stats[0]));
+	offset += snprintf(buf + offset, remained - offset, 
+        "\033[0;94m%-31s\n===============================\n", "[SysMonitor] CPU Core Usages");
+	offset += snprintf(buf + offset, remained - offset, 
+        "|    %-8s  |  %7s     |\n===============================\n", "Core #", "Load");
+	offset += snprintf(buf + offset, remained - offset, "| %-10s   | %10.2lf %% |\n", "All Cores", 
+        get_cpu_usage(prev_stats[0], curr_stats[0]));
+
 	for (int i = 1; i <= core_count; ++i)
-		g_logger(&p, &remained, LOG_INFO, "| Core %-7d | %10.2lf %% |", i,
+		offset += snprintf(buf + offset, remained - offset, "| Core %-7d | %10.2lf %% |\n", i,
 			get_cpu_usage(prev_stats[i], curr_stats[i]));
 
-	g_logger(&p, &remained, LOG_INFO, "===============================");
+	offset += snprintf(buf + offset, remained - offset, 
+        "===============================\n\033[0m");
 	free(prev_stats);
 	free(curr_stats);
     return buf;
@@ -47,7 +36,6 @@ char *respond_cpu_usage() {
 Module *get_module() {
     static Module cpu_module = {
         .name = "cpu",
-        .initialize_module = initialize_cpu_module,
         .respond_data = respond_cpu_usage
     };
     return &cpu_module;
