@@ -75,13 +75,13 @@
     _SERVER_INFO = ("x.x.x.x", 8080)
 
     def sendto_server(s):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.sendto(s.encode(), _SERVER_INFO)
-        data, addr = sock.recvfrom(4096)
-        print(data.decode().strip())
-    finally:
-        sock.close()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            sock.sendto(s.encode(), _SERVER_INFO)
+            data, addr = sock.recvfrom(4096)
+            print(data.decode().strip())
+        finally:
+            sock.close()
 
     if __name__ == '__main__':
         while True:
