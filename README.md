@@ -56,8 +56,8 @@
     - `make clean`: `bin` 하의 모든 빌드 결과물들을 삭제한다.
 ---
 # 실행
-- 클라이언트와 서버는 동일한 네트워크에 접속 (내부 IP를 통한 통신)
 ## 클라이언트
+### Ubuntu
 - `nc`(netcat)를 이용하여 서버에게 UDP 요청을 전송한다.
     ```bash
     # nc -u ${server_addr} ${port}
@@ -66,6 +66,29 @@
 - `nc`가 설치되지 않은 경우 다음 명령어를 이용하여 설치한다.
     ```bash
     sudo apt install nc
+    ```
+### Ubuntu / Windows
+- 아래의 코드를 복사하여 `.py` 파일로 저장 후 실행한다.
+    ```python
+    import socket
+    # "x.x.x.x"는 실제 서버 주소로 대체
+    _SERVER_INFO = ("x.x.x.x", 8080)
+
+    def sendto_server(s):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.sendto(s.encode(), _SERVER_INFO)
+        data, addr = sock.recvfrom(4096)
+        print(data.decode().strip())
+    finally:
+        sock.close()
+
+    if __name__ == '__main__':
+        while True:
+            s = input("[SysMonitor] Enter query (cpu | mem | disk | exit): ")
+            sendto_server(s)
+            if s == "exit":
+                break
     ```
 - 클라이언트가 요청할 수 있는 자원은 다음과 같다.
     - `cpu`: 서버의 전체 코어, 각 코어별 사용률을 요청한다.
