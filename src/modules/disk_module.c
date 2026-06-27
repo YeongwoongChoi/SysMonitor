@@ -27,8 +27,8 @@ char *respond_disk_usage() {
 	struct statvfs stat;
 	for (int i = 0; i < count; ++i) {
 		if (!statvfs(infos[i].mountpoint, &stat)) {
-			unsigned long long disk_total = (unsigned long long)stat.f_blocks * stat.f_frsize;
-			unsigned long long disk_free = (unsigned long long)stat.f_bfree * stat.f_frsize;
+			unsigned long long disk_total = (unsigned long long)stat.f_blocks * (unsigned long long)stat.f_frsize;
+			unsigned long long disk_free = (unsigned long long)stat.f_bfree * (unsigned long long)stat.f_frsize;
 			unsigned long long disk_used = disk_total - disk_free;
 			
 			char *tmp = strdup(convert_unit(disk_used));
@@ -42,6 +42,7 @@ char *respond_disk_usage() {
 	offset += snprintf(buf + offset, remained - offset,
 		"=====================================================================================\n");
 	offset += snprintf(buf + offset, remained - offset, "%s", "\033[0m");
+	free(infos);
 	return buf;
 }
 

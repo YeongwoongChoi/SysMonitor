@@ -6,6 +6,25 @@ static LoadedModule loaded_modules[TOTAL_MODULES];
 static int module_count = 0;
 static int socket_descriptor;
 
+void* worker_thread(void* arg) {
+	RequestData* req = (RequestData*)arg;
+	char buf[BUF_SIZE], client_ip[INET_ADDRSTRLEN];
+	int sent = 0, remained = BUF_SIZE - 1;
+	
+	char* response = get_response(socket_descriptor, req->request_type);
+	if (response) {
+		sent += snprintf(buf + sent, remained - sent, "%s", response);
+        free(response);
+        inet_ntop(AF_INET, &(req->client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
+		printf("Sent %u bytes to client(%s) for request '%s'.\n",
+                 sent, client_ip, req->request_type);
+		
+		sendto(socket_descriptor, buf, sent, 0, (struct sockaddr*)&req->client_addr, req->addr_len);
+    }
+	free(req);
+	return NULL;
+}
+
 const char *get_time() {
 	static char datetime[30];
 	time_t raw = time(NULL);
@@ -58,7 +77,7 @@ void *get_module_handler(const char *request_type) {
 	return handler;
 }
 
-void initialize_server(struct sockaddr_in *server_addr) {
+void initialize_server(struct sockaddr_in *server_addr, int port) {
 	atexit(cleanup_modules);
 	signal(SIGINT, terminate);
 
@@ -68,61 +87,50 @@ void initialize_server(struct sockaddr_in *server_addr) {
 	}
 
 	server_addr->sin_family = AF_INET;
-	server_addr->sin_port = htons(PORT_NUM);
+	server_addr->sin_port = htons(port);
 	server_addr->sin_addr.s_addr = INADDR_ANY;
 
 	if (bind(socket_descriptor, (struct sockaddr *)server_addr, sizeof(*server_addr)) < 0) {
-		fprintf(stderr, "Error occurred while binding socket.\n");
+		fprintf(stderr, "Error occurred while binding socket on port %d.\n", port);
 		exit(1);
 	}
 	puts("Binding was successful.");
-	printf("Monitoring agent started at %s on port %d.\n", get_time(), PORT_NUM);
+	printf("Monitoring agent started at %s on port %d.\n", get_time(), port);
 }
 
 void process_request(struct sockaddr_in *client_addr, socklen_t address_length) {
-	char buf[BUF_SIZE], client_ip[INET_ADDRSTRLEN];
-
-	int received, sent = 0, remained = BUF_SIZE - 1, set_exit = 0;
-	char *request_type, *response;
-
-	received = recvfrom(socket_descriptor, buf, BUF_SIZE, 0, 
+	char buf[BUF_SIZE];
+	int received = recvfrom(socket_descriptor, buf, BUF_SIZE - 1, 0, 
 			(struct sockaddr *)client_addr, &address_length);
 
 	if (received < 0) {
 		fprintf(stderr, "Error occurred while receiving data from client.\n");
-		exit(1);
+		return;
 	}
+
 	buf[received] = '\0';
 	buf[strcspn(buf, "\r\n")] = '\0';
-	request_type = strdup(buf);
 	
-	if (!strcmp(request_type, "cpu") || !strcmp(request_type, "mem") || !strcmp(request_type, "disk")) {
-		response = get_response(socket_descriptor, request_type);
-		if (response) {
-			sent += snprintf(buf + sent, remained - sent, "%s", response);
-			free(response);
-			inet_ntop(AF_INET, &(client_addr->sin_addr), client_ip, INET_ADDRSTRLEN);
-			printf("Sent %u bytes to client(%s) for request '%s'.\n", 
-				sent, client_ip, request_type);
+	if (!strcmp(buf, "cpu") || !strcmp(buf, "mem") || !strcmp(buf, "disk")) {	
+		RequestData* req = malloc(sizeof(RequestData));
+		req->client_addr = *client_addr;
+		req->addr_len = address_length;
+		strncpy(req->request_type, buf, sizeof(req->request_type) - 1);
+		req->request_type[15] = '\0';
+
+		pthread_t tid;
+
+		if (pthread_create(&tid, NULL, worker_thread, req) == 0)
+			pthread_detach(tid);
+		else {
+			fprintf(stderr, "Failed to create thread.\n");
+			free(req);
 		}
-		else
-			fprintf(stderr, "Error occurred while getting response from module.\n");
 	}
-	else if (!strcmp(request_type, "exit")) {
-		sent += snprintf(buf + sent, remained - sent, 
-			"[SysMonitor] Server closed - connection will be lost.\n");
-		sent += snprintf(buf + sent, remained - sent, 
-			"[SysMonitor] You can immediately terminate client program.\n");
-		set_exit = 1;
+	else {
+		int sent = snprintf(buf, BUF_SIZE - 1, "[SysMonitor] Invalid request.\nRequest should be one of these: [cpu|mem|disk]\n");
+		sendto(socket_descriptor, buf, sent, 0, (struct sockaddr*)client_addr, address_length);
 	}
-	else
-		sent += snprintf(buf + sent, remained - sent, 
-			"[SysMonitor] Invalid request - \"%s\"\n%s\n", request_type, 
-			"Request should be one of these: [cpu|mem|disk|exit]");
-	sendto(socket_descriptor, buf, sent, 0, (struct sockaddr *)client_addr, address_length);
-	free(request_type);
-	if (set_exit)
-		exit(0);
 }
 
 char *get_response(int sock, const char *request_type) {
@@ -144,11 +152,19 @@ char *get_response(int sock, const char *request_type) {
 	return result;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
 	struct sockaddr_in client_addr, server_addr;
 	socklen_t address_length = sizeof(server_addr);
-	initialize_server(&server_addr);
-
+	
+	int port = DEFAULT_PORT;
+	if (argc > 1) {
+		port = atoi(argv[1]);
+		if (port <= 0 || port > 65535) {
+			fprintf(stderr, "Invalid port number. Using default port %d.\n", DEFAULT_PORT);
+			port = DEFAULT_PORT;
+		}
+	}
+	initialize_server(&server_addr, port);
 	while (1)
 		process_request(&client_addr, address_length);
 	return 0;

@@ -1,7 +1,7 @@
 # Setting up compiler (and flags)
 CC = gcc
-CFLAGS = -Wall -O2 -Isrc
-LDFLAGS = -ldl
+CFLAGS = -Wall -O2 -Isrc -pthread
+LDFLAGS = -ldl -pthread
 SHARED_FLAGS = -shared -fPIC
 
 # target directories

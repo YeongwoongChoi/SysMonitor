@@ -126,7 +126,7 @@ int is_filesystem_included(const char *filesystem) {
 }
 
 const char *convert_unit(unsigned long long byte) {
-	static char buf[32];
+	static __thread char buf[32];
 	if (byte >= (1 << 30))
 		snprintf(buf, sizeof(buf), "%.2f GB", byte / (double)(1 << 30));
 	else if (byte >= (1 << 20))
