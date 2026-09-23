@@ -1,6 +1,6 @@
 # Setting up compiler (and flags)
 CC = gcc
-CFLAGS = -Wall -O2 -Isrc -pthread
+CFLAGS = -Wall -O2 -I$(SRC_DIR) -pthread
 LDFLAGS = -ldl -pthread
 SHARED_FLAGS = -shared -fPIC
 
@@ -11,11 +11,11 @@ MODULES_SRC_DIR = $(SRC_DIR)/modules
 MODULES_DEST_DIR = $(BIN_DIR)/modules
 
 SERVER_SRCS = $(SRC_DIR)/server.c
-MODULE_NAMES = cpu disk mem
+MODULE_NAME = cpu disk mem
 
 COMMON_SRC = $(SRC_DIR)/resource.c
 
-MODULE_SO_FILES = $(patsubst %,$(MODULES_DEST_DIR)/%.so,$(MODULE_NAMES))
+MODULE_SO_FILES = $(patsubst %,$(MODULES_DEST_DIR)/%.so,$(MODULE_NAME))
 
 all: server modules
 

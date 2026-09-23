@@ -85,10 +85,8 @@
 
     if __name__ == '__main__':
         while True:
-            s = input("[SysMonitor] Enter query (cpu | mem | disk | exit): ")
+            s = input("[SysMonitor] Enter query (cpu | mem | disk): ")
             sendto_server(s)
-            if s == "exit":
-                break
     ```
 - 클라이언트가 요청할 수 있는 자원은 다음과 같다.
     - `cpu`: 서버의 전체 코어, 각 코어별 사용률을 요청한다.
@@ -122,7 +120,7 @@
 - 초기화 이후, `while` 루프 내에서 `process_request` 함수를 무한히 호출한다.
     - 클라이언트로부터 request를 수신하고, 수신한 request에 따라 해당 클라이언트에게 응답을 제공한다.
     - 반복된 `dlopen`, `dlclose` 호출을 방지하고자, 서버에는 각 자원을 반환하는 모듈에 대한 핸들러 정보를 가지고 있다.
-        - 만약 모듈을 처음 사용하는 경우, 최초 1회 `dlopen`을 통하여 핸들러를 가져오고, 이를 저장장해둔다.
+        - 만약 모듈을 처음 사용하는 경우, 최초 1회 `dlopen`을 통하여 핸들러를 가져오고, 이를 저장해둔다.
         - 이후 반복된 모듈 호출에서는, 저장된 핸들러 정보를 이용하여 응답을 처리한다.
         - 프로그램이 종료될 경우, `cleanup_modules` 함수에서 모든 핸들러를 닫으며 UDP 소켓도 닫고 종료한다.
 

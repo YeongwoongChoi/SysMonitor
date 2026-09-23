@@ -6,7 +6,14 @@ static LoadedModule loaded_modules[TOTAL_MODULES];
 static int module_count = 0;
 static int socket_descriptor;
 
+int active_threads = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
 void* worker_thread(void* arg) {
+	pthread_mutex_lock(&mutex);
+	active_threads++;
+	pthread_mutex_unlock(&mutex);
+
 	RequestData* req = (RequestData*)arg;
 	char buf[BUF_SIZE], client_ip[INET_ADDRSTRLEN];
 	int sent = 0, remained = BUF_SIZE - 1;
@@ -21,6 +28,10 @@ void* worker_thread(void* arg) {
 		
 		sendto(socket_descriptor, buf, sent, 0, (struct sockaddr*)&req->client_addr, req->addr_len);
     }
+	pthread_mutex_lock(&mutex);
+	active_threads--;
+	pthread_mutex_unlock(&mutex);
+
 	free(req);
 	return NULL;
 }
@@ -35,11 +46,29 @@ const char *get_time() {
 }
 
 void cleanup_modules() {
+	if (socket_descriptor > 0) {
+		close(socket_descriptor);
+		socket_descriptor = -1;
+		puts("Socket closed.");
+	}
+
+	puts("Waiting for active worker threads to complete..");
+	while (1) {
+		pthread_mutex_lock(&mutex);
+		int remaining = active_threads;
+		pthread_mutex_unlock(&mutex);
+
+		if (remaining == 0)
+			break;
+		usleep(10000);
+	}		
+
 	puts("Cleaning up loaded modules.");
 	for (int i = 0; i < module_count; ++i) {
 		if (loaded_modules[i].module_handler) {
 			dlclose(loaded_modules[i].module_handler);
 			printf("Module bin/modules/%s.so closed.\n", loaded_modules[i].name);
+			loaded_modules[i].module_handler = NULL;
 		}
 	}
 
@@ -51,16 +80,33 @@ void cleanup_modules() {
 
 void terminate(int sig) {
 	printf("SIGINT received. Monitoring agent stopped at %s.\n", get_time());
+	cleanup_modules();
 	exit(0);
 }
 
-void *get_module_handler(const char *request_type) {
+void *get_module_handler(const char* request_type) {
+	char prefix[16];
+	memset(prefix, 0, sizeof(prefix));
+	char *p = strchr(request_type, ':');
+
+	if (p) {
+		size_t len = p - request_type;
+		if (len > 15)
+			len = 15;
+		strncpy(prefix, request_type, len);
+		prefix[len] = '\0';
+	}
+	else {
+		strncpy(prefix, request_type, 15);
+		prefix[15] = '\0';
+	}
+
 	for (int i = 0; i < module_count; ++i) {
-		if (!strcmp(loaded_modules[i].name, request_type))
+		if (!strcmp(loaded_modules[i].name, prefix))
 			return loaded_modules[i].module_handler;
 	}
 	char module_path[BUF_SIZE];
-	snprintf(module_path, BUF_SIZE, "bin/modules/%s.so", request_type);
+	snprintf(module_path, BUF_SIZE, "agent/bin/modules/%s.so", prefix);
 
 	void *handler = dlopen(module_path, RTLD_NOW);
 	if (!handler) {
@@ -70,7 +116,7 @@ void *get_module_handler(const char *request_type) {
 	printf("Module %s loaded.\n", module_path);
 
 	if (module_count < TOTAL_MODULES) {
-		strcpy(loaded_modules[module_count].name, request_type);
+		strcpy(loaded_modules[module_count].name, prefix);
 		loaded_modules[module_count].module_handler = handler;
 		module_count++;
 	}
@@ -111,7 +157,7 @@ void process_request(struct sockaddr_in *client_addr, socklen_t address_length) 
 	buf[received] = '\0';
 	buf[strcspn(buf, "\r\n")] = '\0';
 	
-	if (!strcmp(buf, "cpu") || !strcmp(buf, "mem") || !strcmp(buf, "disk")) {	
+	if (!strncmp(buf, "cpu", 3) || !strncmp(buf, "mem", 3) || !strncmp(buf, "disk", 4)) {	
 		RequestData* req = malloc(sizeof(RequestData));
 		req->client_addr = *client_addr;
 		req->addr_len = address_length;
@@ -148,7 +194,7 @@ char *get_response(int sock, const char *request_type) {
 	}
 
 	Module *mod = get_module();
-	char *result = mod->respond_data();
+	char *result = mod->respond_data(request_type);
 	return result;
 }
 

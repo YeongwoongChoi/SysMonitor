@@ -5,3 +5,6 @@ bin/
 .vscode/
 
 .DS_Store
+
+*.log
+*.out

@@ -5,6 +5,6 @@
 
 typedef struct {
     const char *name;
-    char* (*respond_data)();
+    char* (*respond_data)(const char*);
 } Module;
 #endif
